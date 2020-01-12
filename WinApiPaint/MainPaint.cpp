@@ -2,6 +2,11 @@
 #include "MainPaint.h"
 #include <string>
 #include <vector>
+#include "PaintController.h"
+
+HMENU popUpMenu;
+PaintManager *paintManager = new PaintManager();
+Figure *ellipse, *triangle;
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
@@ -34,14 +39,17 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	DeleteMenu(sysMenu, SC_SIZE, MF_BYCOMMAND);
 
 	commandMenu = CreateMenu();
-	AppendMenu(commandMenu, MF_STRING, ID_CIRCLE, "Ellipse");
-	AppendMenu(commandMenu, MF_STRING, ID_RECTANGLE, "Rectangle");
-	AppendMenu(commandMenu, MF_STRING, ID_TRIANGLE, "Triangle");
+	popUpMenu = CreatePopupMenu();
+	AppendMenu(commandMenu, MFT_STRING | MF_POPUP, (UINT)popUpMenu, "Figures");
+	AppendMenu(popUpMenu, MF_STRING, ID_CIRCLE, "Ellipse");
+	AppendMenu(popUpMenu, MF_STRING, ID_RECTANGLE, "Rectangle");
+	AppendMenu(popUpMenu, MF_STRING, ID_TRIANGLE, "Triangle");
 	AppendMenu(commandMenu, MF_STRING, ID_CONNECTOR_LINE, "Connector line");
 	AppendMenu(commandMenu, MF_STRING, ID_MOVE_OBJECTS, "Move");
 	AppendMenu(commandMenu, MF_STRING, ID_SAVE_FILE, "Save");
 	AppendMenu(commandMenu, MF_STRING, ID_OPEN_FILE, "Open");
 	SetMenu(_hwnd, commandMenu);
+	SetMenu(_hwnd, popUpMenu);
 
 	while (GetMessage(&_msg, NULL, 0, 0))
 	{
@@ -51,37 +59,51 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	return (int)_msg.wParam;
 }
 
-int currentCommand = 0, movingFigureIndex;
+int movingFigureIndex;
 HDC memory, secondMemory, hdc, hMemDc;
 POINT prevMouseCoords, currMouseCoords;
-Figure *ellipse;
 PAINTSTRUCT ps;
-bool isDrawing = false, isMoving = false;
 HPEN pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
 HPEN printPen;
-std::string st;
 POINT prevRelCoords, currRelCoords;
-RECT windowPosCoords, currentMovingFigure;
+RECT windowPosCoords, currentMovingFigure, clientRect;
 std::vector<RECT> figures;
 HBITMAP memoryBitmap, secondMemoryBitmap, firstTargetBmp, SecondTargetBmp;
+MENUITEMINFO menuInfo = { sizeof(MENUITEMINFO) };
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	menuInfo.fMask = MIIM_STATE;
 	switch (message)
 	{
 	case WM_CREATE:
-		//CreateLayer(hwnd, &memory, &memoryBitmap, WND_WIDTH, WND_HEIGHT);
-		//eLayer(hwnd, &secondMemory, &secondMemoryBitmap, WND_WIDTH, WND_HEIGHT);
+		CreateLayer(hwnd, &memory, &memoryBitmap, WND_WIDTH, WND_HEIGHT);
+		CreateLayer(hwnd, &secondMemory, &secondMemoryBitmap, WND_WIDTH, WND_HEIGHT);
 		break;
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
 		{
 		case ID_CIRCLE:
-			currentCommand = CIRCLE_DRAW_COMMAND;
+			GetMenuItemInfo(popUpMenu, ID_CIRCLE, FALSE, &menuInfo);
+			menuInfo.fState ^= MFS_CHECKED;
+			SetMenuItemInfo(popUpMenu, ID_CIRCLE, FALSE, &menuInfo);
+			paintManager->SetCurrentCommand(CIRCLE_DRAW_COMMAND);
 			ellipse = new EllipseFigure();
 			break;
+		case ID_TRIANGLE:
+			GetMenuItemInfo(popUpMenu, ID_TRIANGLE, FALSE, &menuInfo);
+			menuInfo.fState ^= MFS_CHECKED;
+			SetMenuItemInfo(popUpMenu, ID_TRIANGLE, FALSE, &menuInfo);
+			paintManager->SetCurrentCommand(TRIANGLE_DRAW_COMMAND);
+			triangle = new Triangle();
+			break;
+		case ID_RECTANGLE:
+			GetMenuItemInfo(popUpMenu, ID_TRIANGLE, FALSE, &menuInfo);
+			menuInfo.fState ^= MFS_CHECKED;
+			SetMenuItemInfo(popUpMenu, ID_TRIANGLE, FALSE, &menuInfo);
+			break;
 		case ID_MOVE_OBJECTS:
-			currentCommand = MOVE_FIGURES_COMMAND;
+			paintManager->SetCurrentCommand(MOVE_FIGURES_COMMAND);
 			break;
 		case ID_SAVE_FILE:
 			SaveFile(secondMemoryBitmap);
@@ -89,11 +111,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case ID_OPEN_FILE:
 			memoryBitmap = LoadBitmapFromFile();
 			secondMemoryBitmap = LoadBitmapFromFile();
-			if (memoryBitmap == NULL)
-			{
-				MessageBox(hwnd, TEXT(" "), TEXT(""), NULL);
-			}
-				
+
+			GetClientRect(hwnd, &clientRect);
+			FillRect(hdc, &clientRect, (HBRUSH)(COLOR_WINDOW + 1));
+			figures.clear();
+
 			hdc = GetDC(hwnd);
 			memory = CreateCompatibleDC(hdc);
 			SelectObject(memory, memoryBitmap);
@@ -111,17 +133,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_LBUTTONDOWN:
-		if (currentCommand == CIRCLE_DRAW_COMMAND)
+		if ((paintManager->GetCurrentCommand() == CIRCLE_DRAW_COMMAND) || (paintManager->GetCurrentCommand() == TRIANGLE_DRAW_COMMAND))
 		{
 			BitBlt(secondMemory, 0, 0, WND_WIDTH, WND_HEIGHT, memory, 0, 0, SRCCOPY);
 			SelectObject(memory, pen);
 			prevRelCoords = GetMouseCoords(hwnd);
-			if (currentCommand != 0)
+			if (paintManager->GetCurrentCommand() != 0)
 			{
-				isDrawing = true;
+				paintManager->SetDrawingState(true);
 			}
 		}
-		else if (currentCommand == MOVE_FIGURES_COMMAND)
+		else if (paintManager->GetCurrentCommand() == MOVE_FIGURES_COMMAND)
 		{
 			currRelCoords = GetMouseCoords(hwnd);
 			for (int index = 0; index < figures.size(); index++)
@@ -135,16 +157,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					UpdateWindow(hwnd);
 					currentMovingFigure = figures[index];
 					movingFigureIndex = index;
-					isMoving = true;
+					paintManager->SetMovingState(true);
 					break;
 				}
 			}
 		}
 		break;
 	case WM_LBUTTONUP:
-		if (isDrawing)
+		if (paintManager->GetDrawingState())
 		{
-			isDrawing = false;
+			paintManager->SetDrawingState(false);
 			currRelCoords = GetMouseCoords(hwnd);
 			ellipse->SetFigurePoints(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
 			ellipse->Draw(memory);
@@ -152,9 +174,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);
 		}
-		else if (isMoving)
+		else if (paintManager->GetMovingState())
 		{
-			isMoving = false;
+			paintManager->SetMovingState(false);
 			currRelCoords = GetMouseCoords(hwnd);
 			int ellipseWidth = currentMovingFigure.right - currentMovingFigure.left;
 			int ellipseHeight = currentMovingFigure.bottom - currentMovingFigure.top;
@@ -168,19 +190,21 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_MOUSEMOVE:
-		if (isDrawing)
+		if (paintManager->GetDrawingState())
 		{
 			BitBlt(memory, 0, 0, WND_WIDTH, WND_HEIGHT, secondMemory, 0, 0, SRCCOPY);
 			currRelCoords = GetMouseCoords(hwnd);
-			if (currentCommand == CIRCLE_DRAW_COMMAND)
+			if (paintManager->GetCurrentCommand() == CIRCLE_DRAW_COMMAND)
 			{
-				ellipse->SetFigurePoints(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
-				ellipse->Draw(memory);
+				triangle->SetFigurePoints(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
+				triangle->Draw(memory);
+				//ellipse->SetFigurePoints(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
+				//ellipse->Draw(memory);
 				InvalidateRect(hwnd, 0, FALSE);
 				UpdateWindow(hwnd);
 			}
 		}
-		else if ((currentCommand == MOVE_FIGURES_COMMAND) && (isMoving == true))
+		else if ((paintManager->GetCurrentCommand() == MOVE_FIGURES_COMMAND) && (paintManager->GetMovingState() == true))
 		{
 			BitBlt(memory, 0, 0, WND_WIDTH, WND_HEIGHT, secondMemory, 0, 0, SRCCOPY);
 			FillRect(memory, &currentMovingFigure, (HBRUSH)(COLOR_WINDOW + 1));

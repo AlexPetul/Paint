@@ -126,12 +126,15 @@
     <ClCompile Include="EllipseFigure.cpp" />
     <ClCompile Include="Figure.cpp" />
     <ClCompile Include="MainPaint.cpp" />
+    <ClCompile Include="PaintController.cpp" />
+    <ClCompile Include="Triangle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EllipseFigure.h" />
     <ClInclude Include="Figure.h" />
     <ClInclude Include="MainPaint.h" />
     <ClInclude Include="PaintController.h" />
+    <ClInclude Include="Triangle.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
