@@ -24,6 +24,14 @@
 #define ID_SAVE_FILE 671
 #define ID_OPEN_FILE 672
 
+typedef struct tagKHMZ_BITMAPINFOEX
+{
+	BITMAPINFOHEADER bmiHeader;
+	RGBQUAD          bmiColors[256];
+} KHMZ_BITMAPINFOEX, FAR *LPKHMZ_BITMAPINFOEX;
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 void CreateLayer(HWND hWnd, HDC* newDC, HBITMAP* newBmp, int width, int hight);
 POINT GetMouseCoords(HWND hwnd);
+void SaveFile(HBITMAP bmptoSave);
+HBITMAP LoadBitmapFromFile();

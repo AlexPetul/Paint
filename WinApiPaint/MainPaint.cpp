@@ -8,7 +8,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	HWND _hwnd;
 	MSG _msg;
 	WNDCLASSEX _wc;
-	HMENU commandMenu;
+	HMENU commandMenu, sysMenu;
 
 	_wc.cbSize = sizeof(WNDCLASSEX);
 	_wc.style = CS_DBLCLKS;
@@ -29,6 +29,10 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	ShowWindow(_hwnd, nCmdShow);
 	UpdateWindow(_hwnd);
 
+	sysMenu = GetSystemMenu(_hwnd, FALSE);
+	DeleteMenu(sysMenu, SC_MAXIMIZE, MF_BYCOMMAND);
+	DeleteMenu(sysMenu, SC_SIZE, MF_BYCOMMAND);
+
 	commandMenu = CreateMenu();
 	AppendMenu(commandMenu, MF_STRING, ID_CIRCLE, "Ellipse");
 	AppendMenu(commandMenu, MF_STRING, ID_RECTANGLE, "Rectangle");
@@ -48,36 +52,62 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 }
 
 int currentCommand = 0, movingFigureIndex;
-HDC memory, secondMemory, hdc;
+HDC memory, secondMemory, hdc, hMemDc;
 POINT prevMouseCoords, currMouseCoords;
 Figure *ellipse;
 PAINTSTRUCT ps;
 bool isDrawing = false, isMoving = false;
 HPEN pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+HPEN printPen;
 std::string st;
 POINT prevRelCoords, currRelCoords;
 RECT windowPosCoords, currentMovingFigure;
 std::vector<RECT> figures;
-
+HBITMAP memoryBitmap, secondMemoryBitmap, firstTargetBmp, SecondTargetBmp;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
 	case WM_CREATE:
-		HBITMAP memoryBitmap, secondMemoryBitmap;
-		CreateLayer(hwnd, &memory, &memoryBitmap, WND_WIDTH, WND_HEIGHT);
-		CreateLayer(hwnd, &secondMemory, &secondMemoryBitmap, WND_WIDTH, WND_HEIGHT);
+		//CreateLayer(hwnd, &memory, &memoryBitmap, WND_WIDTH, WND_HEIGHT);
+		//eLayer(hwnd, &secondMemory, &secondMemoryBitmap, WND_WIDTH, WND_HEIGHT);
 		break;
 	case WM_COMMAND:
-		if (LOWORD(wParam) == ID_CIRCLE)
+		switch (LOWORD(wParam))
 		{
+		case ID_CIRCLE:
 			currentCommand = CIRCLE_DRAW_COMMAND;
 			ellipse = new EllipseFigure();
-		}
-		else if (LOWORD(wParam) == ID_MOVE_OBJECTS)
-		{
+			break;
+		case ID_MOVE_OBJECTS:
 			currentCommand = MOVE_FIGURES_COMMAND;
+			break;
+		case ID_SAVE_FILE:
+			SaveFile(secondMemoryBitmap);
+			break;
+		case ID_OPEN_FILE:
+			memoryBitmap = LoadBitmapFromFile();
+			secondMemoryBitmap = LoadBitmapFromFile();
+			if (memoryBitmap == NULL)
+			{
+				MessageBox(hwnd, TEXT(" "), TEXT(""), NULL);
+			}
+				
+			hdc = GetDC(hwnd);
+			memory = CreateCompatibleDC(hdc);
+			SelectObject(memory, memoryBitmap);
+			ReleaseDC(hwnd, hdc);
+
+			hdc = GetDC(hwnd);
+			secondMemory = CreateCompatibleDC(hdc);
+			SelectObject(secondMemory, secondMemoryBitmap);
+			ReleaseDC(hwnd, hdc);
+
+			InvalidateRect(hwnd, NULL, FALSE);
+			UpdateWindow(hwnd);
+
+ 			break;
 		}
 		break;
 	case WM_LBUTTONDOWN:
@@ -170,11 +200,143 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		EndPaint(hwnd, &ps);
 		break;
 	case WM_DESTROY:
+		delete ellipse;
 		PostQuitMessage(0);
 		break;
 	default:
 		return DefWindowProc(hwnd, message, wParam, lParam);
 	}
+}
+
+HBITMAP LoadBitmapFromFile()
+{
+	HANDLE hFile;
+	BITMAPFILEHEADER bf;
+	KHMZ_BITMAPINFOEX bmi;
+	DWORD cb, cbImage;
+	LPVOID pvBits1, pvBits2;
+	HDC hDC;
+	HBITMAP hbm;
+
+	hbm = (HBITMAP)LoadImage(NULL, "custom.bmp", IMAGE_BITMAP, 0, 0,
+		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+	if (hbm)
+		return hbm;
+
+	hFile = CreateFile("custom.bmp", GENERIC_READ, FILE_SHARE_READ, NULL,
+		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE)
+	{
+		return NULL;
+	}
+
+	if (!ReadFile(hFile, &bf, sizeof(BITMAPFILEHEADER), &cb, NULL))
+	{
+		CloseHandle(NULL);
+		return NULL;
+	}
+
+	pvBits1 = NULL;
+	if (bf.bfType == 0x4D42 && bf.bfReserved1 == 0 && bf.bfReserved2 == 0 &&
+		bf.bfSize > bf.bfOffBits && bf.bfOffBits > sizeof(BITMAPFILEHEADER) &&
+		bf.bfOffBits <= sizeof(BITMAPFILEHEADER) + sizeof(KHMZ_BITMAPINFOEX))
+	{
+		cbImage = bf.bfSize - bf.bfOffBits;
+		pvBits1 = HeapAlloc(GetProcessHeap(), 0, cbImage);
+		if (pvBits1)
+		{
+			if (!ReadFile(hFile, &bmi, bf.bfOffBits -
+				sizeof(BITMAPFILEHEADER), &cb, NULL) ||
+				!ReadFile(hFile, pvBits1, cbImage, &cb, NULL))
+			{
+				HeapFree(GetProcessHeap(), 0, pvBits1);
+				pvBits1 = NULL;
+			}
+		}
+	}
+	CloseHandle(hFile);
+	if (pvBits1 == NULL)
+	{
+		return NULL;
+	}
+	hbm = CreateDIBSection(NULL, (BITMAPINFO*)&bmi, DIB_RGB_COLORS,
+		&pvBits2, NULL, 0);
+	if (hbm)
+	{
+		hDC = CreateCompatibleDC(NULL);
+		if (!SetDIBits(hDC, hbm, 0, (UINT)labs(bmi.bmiHeader.biHeight), pvBits1, (BITMAPINFO*)&bmi, DIB_RGB_COLORS))
+		{
+			DeleteObject(hbm);
+			hbm = NULL;
+		}
+		DeleteDC(hDC);
+	}
+	HeapFree(GetProcessHeap(), 0, pvBits1);
+	return hbm;
+}
+
+
+void SaveFile(HBITMAP bmpToSave)
+{
+	BOOL fOK;
+	KHMZ_BITMAPINFOEX bmi;
+	BITMAPFILEHEADER bf;
+	BITMAPINFOHEADER *bmpInfoHdr;
+	BITMAP bm;
+	DWORD cb, cbColors;
+	HDC hDC;
+	HANDLE hFile;
+	LPVOID pBits;
+
+	GetObject(bmpToSave, sizeof(BITMAP), &bm);
+	bmpInfoHdr = &bmi.bmiHeader;
+	ZeroMemory(bmpInfoHdr, sizeof(BITMAPINFOHEADER));
+	bmpInfoHdr->biSize = sizeof(BITMAPINFOHEADER);
+	bmpInfoHdr->biWidth = bm.bmWidth;
+	bmpInfoHdr->biHeight = bm.bmHeight;
+	bmpInfoHdr->biPlanes = 1;
+	bmpInfoHdr->biBitCount = bm.bmBitsPixel;
+	bmpInfoHdr->biCompression = BI_RGB;
+	bmpInfoHdr->biSizeImage = (DWORD)(bm.bmWidthBytes * bm.bmHeight);
+
+	if (bm.bmBitsPixel <= 8)
+		cbColors = (DWORD)((1ULL << bm.bmBitsPixel) * sizeof(RGBQUAD));
+	else
+		cbColors = 0;
+
+	bf.bfType = 0x4D42;
+	bf.bfReserved1 = 0;
+	bf.bfReserved2 = 0;
+	cb = sizeof(BITMAPFILEHEADER) + bmpInfoHdr->biSize + cbColors;
+	bf.bfOffBits = cb;
+	bf.bfSize = cb + bmpInfoHdr->biSizeImage;
+
+	pBits = HeapAlloc(GetProcessHeap(), 0, bmpInfoHdr->biSizeImage);
+	if (pBits == NULL)
+	{
+		return;   /* allocation failure */
+	}
+
+	hDC = CreateCompatibleDC(NULL);
+
+	fOK = FALSE;
+	GetDIBits(hDC, bmpToSave, 0, (UINT)bm.bmHeight, pBits, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
+	hFile = CreateFile("custom.bmp", GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
+	if (hFile != INVALID_HANDLE_VALUE)
+	{
+		fOK = WriteFile(hFile, &bf, sizeof(bf), &cb, NULL) &&
+			WriteFile(hFile, &bmi, sizeof(BITMAPINFOHEADER) + cbColors, &cb, NULL) &&
+			WriteFile(hFile, pBits, bmpInfoHdr->biSizeImage, &cb, NULL);
+
+		CloseHandle(hFile);
+
+		if (!fOK)
+		{
+			DeleteFile("custom.bmp");
+		}
+	}
+	DeleteDC(hDC);
+	HeapFree(GetProcessHeap(), 0, pBits);
 }
 
 POINT GetMouseCoords(HWND hwnd)
