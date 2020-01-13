@@ -72,6 +72,26 @@ Figure* PaintManager::GetDrawer()
 	return this->drawer;
 }
 
+void PaintManager::AddFigure()
+{
+	this->figures.push_back({ this->GetDrawer()->GetFigureRect(), this->toolUsed });
+}
+
+void PaintManager::EraseFigureByIndex()
+{
+	this->figures.erase(this->figures.begin() + movingFigureIndex);
+}
+
+void PaintManager::SetMovingFigureIndex(int index)
+{
+	this->movingFigureIndex = index;
+}
+
+std::vector<DrawnFigure> PaintManager::GetPaintedFigures()
+{
+	return this->figures;
+}
+
 PaintManager::~PaintManager()
 {
 

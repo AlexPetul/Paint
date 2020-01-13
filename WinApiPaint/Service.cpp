@@ -23,6 +23,11 @@ bool Service::GetMenuItemState(int currMenuItem)
 		}
 	}
 
+	if (currMenuItem == ID_MOVE_OBJECTS)
+	{
+		return true;
+	}
+
 	GetMenuItemInfo(popUpMenu, currMenuItem, FALSE, &menuInfo);
 	menuInfo.fState ^= MFS_CHECKED;
 	SetMenuItemInfo(popUpMenu, currMenuItem, FALSE, &menuInfo);

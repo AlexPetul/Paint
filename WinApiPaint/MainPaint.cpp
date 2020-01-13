@@ -119,6 +119,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				paintManager->SetCurrentCommand(0);
 			}
 		case ID_MOVE_OBJECTS:
+			service->GetMenuItemState(ID_MOVE_OBJECTS);
 			paintManager->SetCurrentCommand(MOVE_FIGURES_COMMAND);
 			break;
 		case ID_SAVE_FILE:
@@ -166,15 +167,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				if (PtInRect(&(figures[index].figureRect), currRelCoords))
 				{
-					if (figures[index].tooId == ID_CIRCLE)
+					if (figures[index].toolId == ID_CIRCLE)
 					{
 						paintManager->SetDrawer(new EllipseFigure());
 					}
-					else if (figures[index].tooId == ID_RECTANGLE)
+					else if (figures[index].toolId == ID_RECTANGLE)
 					{
 						paintManager->SetDrawer(new RectangleFigure());
 					}
-					else if (figures[index].tooId == ID_TRIANGLE)
+					else if (figures[index].toolId == ID_TRIANGLE)
 					{
 						paintManager->SetDrawer(new Triangle());
 					}
@@ -208,11 +209,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			paintManager->SetMovingState(false);
 			currRelCoords = service->GetMouseCoords(hwnd);
-			int ellipseWidth = currentMovingFigure.right - currentMovingFigure.left;
-			int ellipseHeight = currentMovingFigure.bottom - currentMovingFigure.top;
-			paintManager->SetDrawerCoords(currRelCoords.x - xOffset, currRelCoords.y - yOffset, currRelCoords.x + ellipseWidth - xOffset, currRelCoords.y + ellipseHeight - yOffset);
+			int figureWidth = currentMovingFigure.right - currentMovingFigure.left;
+			int figureHeight = currentMovingFigure.bottom - currentMovingFigure.top;
+			paintManager->SetDrawerCoords(currRelCoords.x - xOffset, currRelCoords.y - yOffset, currRelCoords.x + figureWidth - xOffset, currRelCoords.y + figureHeight - yOffset);
 			paintManager->DrawFigure(memory);
-			figures.push_back({ paintManager->GetDrawer()->GetFigureRect(), figures[movingFigureIndex].tooId });
+			figures.push_back({ paintManager->GetDrawer()->GetFigureRect(), figures[movingFigureIndex].toolId });
 			figures.erase(figures.begin() + movingFigureIndex);
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);

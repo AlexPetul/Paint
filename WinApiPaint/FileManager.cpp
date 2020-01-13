@@ -15,12 +15,12 @@ HBITMAP FileManager::LoadBitmapFromFile()
 	HDC hDC;
 	HBITMAP hbm;
 
-	hbm = (HBITMAP)LoadImage(NULL, "custom.bmp", IMAGE_BITMAP, 0, 0,
+	hbm = (HBITMAP)LoadImage(NULL, CUSTOM_FILENAME, IMAGE_BITMAP, 0, 0,
 		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 	if (hbm)
 		return hbm;
 
-	hFile = CreateFile("custom.bmp", GENERIC_READ, FILE_SHARE_READ, NULL,
+	hFile = CreateFile(CUSTOM_FILENAME, GENERIC_READ, FILE_SHARE_READ, NULL,
 		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
@@ -117,7 +117,7 @@ void FileManager::SaveFile(HBITMAP bmpToSave, HWND hwnd)
 
 	fOK = FALSE;
 	GetDIBits(hDC, bmpToSave, 0, (UINT)bm.bmHeight, pBits, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
-	hFile = CreateFile("custom.bmp", GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
+	hFile = CreateFile(CUSTOM_FILENAME, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
 	if (hFile != INVALID_HANDLE_VALUE)
 	{
 		fOK = WriteFile(hFile, &bf, sizeof(bf), &cb, NULL) &&
@@ -128,7 +128,7 @@ void FileManager::SaveFile(HBITMAP bmpToSave, HWND hwnd)
 
 		if (!fOK)
 		{
-			DeleteFile("custom.bmp");
+			DeleteFile(CUSTOM_FILENAME);
 		}
 	}
 	DeleteDC(hDC);

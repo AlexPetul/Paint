@@ -1,6 +1,8 @@
 #pragma once
 #include <Windows.h>
 
+#define CUSTOM_FILENAME "custom.bmp"
+
 typedef struct tagKHMZ_BITMAPINFOEX
 {
 	BITMAPINFOHEADER bmiHeader;

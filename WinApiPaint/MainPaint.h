@@ -29,11 +29,5 @@
 #define ID_SAVE_FILE 671
 #define ID_OPEN_FILE 672
 
-typedef struct drawnFigure
-{
-	RECT figureRect;
-	int tooId;
-}DrawnFigure;
-
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 void CreateLayer(HWND hWnd, HDC* newDC, HBITMAP* newBmp, int width, int hight);
