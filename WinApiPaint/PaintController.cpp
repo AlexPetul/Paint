@@ -44,8 +44,18 @@ void PaintManager::SetDrawer(Figure* drawer)
 
 void PaintManager::DrawFigure(HDC hdc)
 {
-	drawer->Draw(hdc);
+	this->drawer->Draw(hdc);
 };
+
+void PaintManager::SetDrawerCoords(int x1, int y1, int x2, int y2)
+{
+	this->drawer->SetFigurePoints(x1, y1, x2, y2);
+}
+
+Figure* PaintManager::GetDrawer()
+{
+	return this->drawer;
+}
 
 PaintManager::~PaintManager()
 {

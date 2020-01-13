@@ -127,6 +127,8 @@
     <ClCompile Include="Figure.cpp" />
     <ClCompile Include="MainPaint.cpp" />
     <ClCompile Include="PaintController.cpp" />
+    <ClCompile Include="RectangleFigure.cpp" />
+    <ClCompile Include="Service.cpp" />
     <ClCompile Include="Triangle.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -134,6 +136,8 @@
     <ClInclude Include="Figure.h" />
     <ClInclude Include="MainPaint.h" />
     <ClInclude Include="PaintController.h" />
+    <ClInclude Include="RectangleFigure.h" />
+    <ClInclude Include="Service.h" />
     <ClInclude Include="Triangle.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,6 +1,8 @@
 #include "Figure.h"
 #include "EllipseFigure.h"
 #include "Triangle.h"
+#include "RectangleFigure.h"
+#include "Service.h"
 
 #define WND_START_X 0
 #define WND_START_Y 0

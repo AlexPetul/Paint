@@ -16,6 +16,8 @@ public:
 	int GetCurrentCommand();
 	void SetCurrentCommand(int command);
 	void SetDrawer(Figure* drawer);
+	Figure* GetDrawer();
+	void SetDrawerCoords(int x1, int y1, int x2, int y2);
 	void DrawFigure(HDC hdc);
 	~PaintManager();
 };

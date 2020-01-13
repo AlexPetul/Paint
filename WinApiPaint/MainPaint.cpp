@@ -4,16 +4,15 @@
 #include <vector>
 #include "PaintController.h"
 
-HMENU popUpMenu;
 PaintManager *paintManager = new PaintManager();
-Figure *ellipse, *triangle;
+Service *service;
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
 	HWND _hwnd;
 	MSG _msg;
 	WNDCLASSEX _wc;
-	HMENU commandMenu, sysMenu;
+	HMENU commandMenu, sysMenu, popUpMenu;
 
 	_wc.cbSize = sizeof(WNDCLASSEX);
 	_wc.style = CS_DBLCLKS;
@@ -50,6 +49,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	AppendMenu(commandMenu, MF_STRING, ID_OPEN_FILE, "Open");
 	SetMenu(_hwnd, commandMenu);
 	SetMenu(_hwnd, popUpMenu);
+	service = new Service(popUpMenu);
 
 	while (GetMessage(&_msg, NULL, 0, 0))
 	{
@@ -69,11 +69,9 @@ POINT prevRelCoords, currRelCoords;
 RECT windowPosCoords, currentMovingFigure, clientRect;
 std::vector<RECT> figures;
 HBITMAP memoryBitmap, secondMemoryBitmap, firstTargetBmp, SecondTargetBmp;
-MENUITEMINFO menuInfo = { sizeof(MENUITEMINFO) };
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	menuInfo.fMask = MIIM_STATE;
 	switch (message)
 	{
 	case WM_CREATE:
@@ -84,24 +82,38 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		switch (LOWORD(wParam))
 		{
 		case ID_CIRCLE:
-			GetMenuItemInfo(popUpMenu, ID_CIRCLE, FALSE, &menuInfo);
-			menuInfo.fState ^= MFS_CHECKED;
-			SetMenuItemInfo(popUpMenu, ID_CIRCLE, FALSE, &menuInfo);
-			paintManager->SetCurrentCommand(CIRCLE_DRAW_COMMAND);
-			ellipse = new EllipseFigure();
+			if (service->GetMenuItemState(ID_CIRCLE))
+			{
+				paintManager->SetCurrentCommand(CIRCLE_DRAW_COMMAND);
+				paintManager->SetDrawer(new EllipseFigure());
+			}
+			else
+			{
+				paintManager->SetCurrentCommand(0);
+			}
 			break;
 		case ID_TRIANGLE:
-			GetMenuItemInfo(popUpMenu, ID_TRIANGLE, FALSE, &menuInfo);
-			menuInfo.fState ^= MFS_CHECKED;
-			SetMenuItemInfo(popUpMenu, ID_TRIANGLE, FALSE, &menuInfo);
-			paintManager->SetCurrentCommand(TRIANGLE_DRAW_COMMAND);
-			triangle = new Triangle();
+			if (service->GetMenuItemState(ID_TRIANGLE))
+			{
+				paintManager->SetCurrentCommand(TRIANGLE_DRAW_COMMAND);
+				paintManager->SetDrawer(new Triangle());
+			}
+			else
+			{
+				paintManager->SetCurrentCommand(0);
+			}
 			break;
 		case ID_RECTANGLE:
-			GetMenuItemInfo(popUpMenu, ID_TRIANGLE, FALSE, &menuInfo);
-			menuInfo.fState ^= MFS_CHECKED;
-			SetMenuItemInfo(popUpMenu, ID_TRIANGLE, FALSE, &menuInfo);
-			break;
+			if (service->GetMenuItemState(ID_RECTANGLE))
+			{
+				paintManager->SetCurrentCommand(RECTANGLE_DRAW_COMMAND);
+				paintManager->SetDrawer(new RectangleFigure());
+				break;
+			}
+			else
+			{
+				paintManager->SetCurrentCommand(0);
+			}
 		case ID_MOVE_OBJECTS:
 			paintManager->SetCurrentCommand(MOVE_FIGURES_COMMAND);
 			break;
@@ -133,7 +145,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_LBUTTONDOWN:
-		if ((paintManager->GetCurrentCommand() == CIRCLE_DRAW_COMMAND) || (paintManager->GetCurrentCommand() == TRIANGLE_DRAW_COMMAND))
+		if ((paintManager->GetCurrentCommand() >= 1) && (paintManager->GetCurrentCommand() <= 3))
 		{
 			BitBlt(secondMemory, 0, 0, WND_WIDTH, WND_HEIGHT, memory, 0, 0, SRCCOPY);
 			SelectObject(memory, pen);
@@ -168,9 +180,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			paintManager->SetDrawingState(false);
 			currRelCoords = GetMouseCoords(hwnd);
-			ellipse->SetFigurePoints(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
-			ellipse->Draw(memory);
-			figures.push_back(ellipse->GetFigureRect());
+			paintManager->SetDrawerCoords(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
+			paintManager->DrawFigure(memory);
+			figures.push_back(paintManager->GetDrawer()->GetFigureRect());
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);
 		}
@@ -180,11 +192,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			currRelCoords = GetMouseCoords(hwnd);
 			int ellipseWidth = currentMovingFigure.right - currentMovingFigure.left;
 			int ellipseHeight = currentMovingFigure.bottom - currentMovingFigure.top;
-			ellipse->SetFigurePoints(currRelCoords.x, currRelCoords.y,
-				currRelCoords.x + ellipseWidth, currRelCoords.y + ellipseHeight);
-			ellipse->Draw(memory);
+			paintManager->SetDrawerCoords(currRelCoords.x, currRelCoords.y, currRelCoords.x + ellipseWidth, currRelCoords.y + ellipseHeight);
+			paintManager->DrawFigure(memory);
 			figures.erase(figures.begin() + movingFigureIndex);
-			figures.push_back(ellipse->GetFigureRect());
+			figures.push_back(paintManager->GetDrawer()->GetFigureRect());
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);
 		}
@@ -194,12 +205,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			BitBlt(memory, 0, 0, WND_WIDTH, WND_HEIGHT, secondMemory, 0, 0, SRCCOPY);
 			currRelCoords = GetMouseCoords(hwnd);
-			if (paintManager->GetCurrentCommand() == CIRCLE_DRAW_COMMAND)
+			if (paintManager->GetCurrentCommand() >= 1)
 			{
-				triangle->SetFigurePoints(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
-				triangle->Draw(memory);
-				//ellipse->SetFigurePoints(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
-				//ellipse->Draw(memory);
+				paintManager->SetDrawerCoords(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
+				paintManager->DrawFigure(memory);
 				InvalidateRect(hwnd, 0, FALSE);
 				UpdateWindow(hwnd);
 			}
@@ -211,9 +220,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			currRelCoords = GetMouseCoords(hwnd);
 			int ellipseWidth = currentMovingFigure.right - currentMovingFigure.left;
 			int ellipseHeight = currentMovingFigure.bottom - currentMovingFigure.top;
-			ellipse->SetFigurePoints(currRelCoords.x, currRelCoords.y,
-				currRelCoords.x + ellipseWidth, currRelCoords.y + ellipseHeight);
-			ellipse->Draw(memory);
+			paintManager->SetDrawerCoords(currRelCoords.x, currRelCoords.y, currRelCoords.x + ellipseWidth, currRelCoords.y + ellipseHeight);
+			paintManager->DrawFigure(memory);
 			InvalidateRect(hwnd, 0, FALSE);
 			UpdateWindow(hwnd);
 		}
@@ -224,7 +232,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		EndPaint(hwnd, &ps);
 		break;
 	case WM_DESTROY:
-		delete ellipse;
 		PostQuitMessage(0);
 		break;
 	default:
