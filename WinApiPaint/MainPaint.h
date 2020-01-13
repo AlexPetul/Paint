@@ -3,6 +3,7 @@
 #include "Triangle.h"
 #include "RectangleFigure.h"
 #include "Service.h"
+#include "FileManager.h"
 
 #define WND_START_X 0
 #define WND_START_Y 0
@@ -10,6 +11,7 @@
 #define WND_HEIGHT 700
 #define WND_CLASSNAME "MainWindow"
 #define WND_NAME "Paint"
+
 
 #define CIRCLE_DRAW_COMMAND 1
 #define RECTANGLE_DRAW_COMMAND 2
@@ -27,14 +29,11 @@
 #define ID_SAVE_FILE 671
 #define ID_OPEN_FILE 672
 
-typedef struct tagKHMZ_BITMAPINFOEX
+typedef struct drawnFigure
 {
-	BITMAPINFOHEADER bmiHeader;
-	RGBQUAD          bmiColors[256];
-} KHMZ_BITMAPINFOEX, FAR *LPKHMZ_BITMAPINFOEX;
+	RECT figureRect;
+	int tooId;
+}DrawnFigure;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 void CreateLayer(HWND hWnd, HDC* newDC, HBITMAP* newBmp, int width, int hight);
-POINT GetMouseCoords(HWND hwnd);
-void SaveFile(HBITMAP bmptoSave);
-HBITMAP LoadBitmapFromFile();

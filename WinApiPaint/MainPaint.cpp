@@ -4,8 +4,20 @@
 #include <vector>
 #include "PaintController.h"
 
+POINT prevRelCoords, currRelCoords;
+HDC memory, secondMemory, hdc;
+POINT prevMouseCoords, currMouseCoords;
 PaintManager *paintManager = new PaintManager();
+FileManager *fileManager = new FileManager();
 Service *service;
+int movingFigureIndex;
+int xOffset, yOffset;
+PAINTSTRUCT ps;
+HPEN pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+HPEN printPen;
+RECT windowPosCoords, currentMovingFigure, clientRect;
+std::vector<DrawnFigure> figures;
+HBITMAP memoryBitmap, secondMemoryBitmap;
 
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
@@ -59,17 +71,6 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	return (int)_msg.wParam;
 }
 
-int movingFigureIndex;
-HDC memory, secondMemory, hdc, hMemDc;
-POINT prevMouseCoords, currMouseCoords;
-PAINTSTRUCT ps;
-HPEN pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-HPEN printPen;
-POINT prevRelCoords, currRelCoords;
-RECT windowPosCoords, currentMovingFigure, clientRect;
-std::vector<RECT> figures;
-HBITMAP memoryBitmap, secondMemoryBitmap, firstTargetBmp, SecondTargetBmp;
-
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
@@ -86,6 +87,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				paintManager->SetCurrentCommand(CIRCLE_DRAW_COMMAND);
 				paintManager->SetDrawer(new EllipseFigure());
+				paintManager->SetToolId(ID_CIRCLE);
 			}
 			else
 			{
@@ -97,6 +99,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				paintManager->SetCurrentCommand(TRIANGLE_DRAW_COMMAND);
 				paintManager->SetDrawer(new Triangle());
+				paintManager->SetToolId(ID_TRIANGLE);
 			}
 			else
 			{
@@ -108,6 +111,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 				paintManager->SetCurrentCommand(RECTANGLE_DRAW_COMMAND);
 				paintManager->SetDrawer(new RectangleFigure());
+				paintManager->SetToolId(ID_RECTANGLE);
 				break;
 			}
 			else
@@ -118,11 +122,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			paintManager->SetCurrentCommand(MOVE_FIGURES_COMMAND);
 			break;
 		case ID_SAVE_FILE:
-			SaveFile(secondMemoryBitmap);
+			fileManager->SaveFile(secondMemoryBitmap, hwnd);
 			break;
 		case ID_OPEN_FILE:
-			memoryBitmap = LoadBitmapFromFile();
-			secondMemoryBitmap = LoadBitmapFromFile();
+			memoryBitmap = fileManager->LoadBitmapFromFile();
+			secondMemoryBitmap = fileManager->LoadBitmapFromFile();
 
 			GetClientRect(hwnd, &clientRect);
 			FillRect(hdc, &clientRect, (HBRUSH)(COLOR_WINDOW + 1));
@@ -149,7 +153,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			BitBlt(secondMemory, 0, 0, WND_WIDTH, WND_HEIGHT, memory, 0, 0, SRCCOPY);
 			SelectObject(memory, pen);
-			prevRelCoords = GetMouseCoords(hwnd);
+			prevRelCoords = service->GetMouseCoords(hwnd);
 			if (paintManager->GetCurrentCommand() != 0)
 			{
 				paintManager->SetDrawingState(true);
@@ -157,17 +161,31 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		else if (paintManager->GetCurrentCommand() == MOVE_FIGURES_COMMAND)
 		{
-			currRelCoords = GetMouseCoords(hwnd);
+			currRelCoords = service->GetMouseCoords(hwnd);
 			for (int index = 0; index < figures.size(); index++)
 			{
-				if (PtInRect(&(figures[index]), currRelCoords))
+				if (PtInRect(&(figures[index].figureRect), currRelCoords))
 				{
+					if (figures[index].tooId == ID_CIRCLE)
+					{
+						paintManager->SetDrawer(new EllipseFigure());
+					}
+					else if (figures[index].tooId == ID_RECTANGLE)
+					{
+						paintManager->SetDrawer(new RectangleFigure());
+					}
+					else if (figures[index].tooId == ID_TRIANGLE)
+					{
+						paintManager->SetDrawer(new Triangle());
+					}
 					BitBlt(secondMemory, 0, 0, WND_WIDTH, WND_HEIGHT, memory, 0, 0, SRCCOPY);
 					BitBlt(memory, 0, 0, WND_WIDTH, WND_HEIGHT, secondMemory, 0, 0, SRCCOPY);
-					FillRect(memory, &(figures[index]), (HBRUSH)(COLOR_WINDOW + 1));
+					FillRect(memory, &(figures[index].figureRect), (HBRUSH)(COLOR_WINDOW + 1));
+					yOffset = currRelCoords.y - figures[index].figureRect.top;
+					xOffset = currRelCoords.x - figures[index].figureRect.left;
 					InvalidateRect(hwnd, 0, FALSE);
 					UpdateWindow(hwnd);
-					currentMovingFigure = figures[index];
+					currentMovingFigure = figures[index].figureRect;
 					movingFigureIndex = index;
 					paintManager->SetMovingState(true);
 					break;
@@ -179,23 +197,23 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (paintManager->GetDrawingState())
 		{
 			paintManager->SetDrawingState(false);
-			currRelCoords = GetMouseCoords(hwnd);
+			currRelCoords = service->GetMouseCoords(hwnd);
 			paintManager->SetDrawerCoords(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
 			paintManager->DrawFigure(memory);
-			figures.push_back(paintManager->GetDrawer()->GetFigureRect());
+			figures.push_back({ paintManager->GetDrawer()->GetFigureRect(), paintManager->GetUsedToolId() });
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);
 		}
 		else if (paintManager->GetMovingState())
 		{
 			paintManager->SetMovingState(false);
-			currRelCoords = GetMouseCoords(hwnd);
+			currRelCoords = service->GetMouseCoords(hwnd);
 			int ellipseWidth = currentMovingFigure.right - currentMovingFigure.left;
 			int ellipseHeight = currentMovingFigure.bottom - currentMovingFigure.top;
-			paintManager->SetDrawerCoords(currRelCoords.x, currRelCoords.y, currRelCoords.x + ellipseWidth, currRelCoords.y + ellipseHeight);
+			paintManager->SetDrawerCoords(currRelCoords.x - xOffset, currRelCoords.y - yOffset, currRelCoords.x + ellipseWidth - xOffset, currRelCoords.y + ellipseHeight - yOffset);
 			paintManager->DrawFigure(memory);
+			figures.push_back({ paintManager->GetDrawer()->GetFigureRect(), figures[movingFigureIndex].tooId });
 			figures.erase(figures.begin() + movingFigureIndex);
-			figures.push_back(paintManager->GetDrawer()->GetFigureRect());
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);
 		}
@@ -204,7 +222,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (paintManager->GetDrawingState())
 		{
 			BitBlt(memory, 0, 0, WND_WIDTH, WND_HEIGHT, secondMemory, 0, 0, SRCCOPY);
-			currRelCoords = GetMouseCoords(hwnd);
+			currRelCoords = service->GetMouseCoords(hwnd);
 			if (paintManager->GetCurrentCommand() >= 1)
 			{
 				paintManager->SetDrawerCoords(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
@@ -217,10 +235,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			BitBlt(memory, 0, 0, WND_WIDTH, WND_HEIGHT, secondMemory, 0, 0, SRCCOPY);
 			FillRect(memory, &currentMovingFigure, (HBRUSH)(COLOR_WINDOW + 1));
-			currRelCoords = GetMouseCoords(hwnd);
+			currRelCoords = service->GetMouseCoords(hwnd);
 			int ellipseWidth = currentMovingFigure.right - currentMovingFigure.left;
 			int ellipseHeight = currentMovingFigure.bottom - currentMovingFigure.top;
-			paintManager->SetDrawerCoords(currRelCoords.x, currRelCoords.y, currRelCoords.x + ellipseWidth, currRelCoords.y + ellipseHeight);
+			paintManager->SetDrawerCoords(currRelCoords.x - xOffset, currRelCoords.y - yOffset, currRelCoords.x + ellipseWidth - xOffset, currRelCoords.y + ellipseHeight - yOffset);
 			paintManager->DrawFigure(memory);
 			InvalidateRect(hwnd, 0, FALSE);
 			UpdateWindow(hwnd);
@@ -237,148 +255,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	default:
 		return DefWindowProc(hwnd, message, wParam, lParam);
 	}
-}
-
-HBITMAP LoadBitmapFromFile()
-{
-	HANDLE hFile;
-	BITMAPFILEHEADER bf;
-	KHMZ_BITMAPINFOEX bmi;
-	DWORD cb, cbImage;
-	LPVOID pvBits1, pvBits2;
-	HDC hDC;
-	HBITMAP hbm;
-
-	hbm = (HBITMAP)LoadImage(NULL, "custom.bmp", IMAGE_BITMAP, 0, 0,
-		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
-	if (hbm)
-		return hbm;
-
-	hFile = CreateFile("custom.bmp", GENERIC_READ, FILE_SHARE_READ, NULL,
-		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
-	{
-		return NULL;
-	}
-
-	if (!ReadFile(hFile, &bf, sizeof(BITMAPFILEHEADER), &cb, NULL))
-	{
-		CloseHandle(NULL);
-		return NULL;
-	}
-
-	pvBits1 = NULL;
-	if (bf.bfType == 0x4D42 && bf.bfReserved1 == 0 && bf.bfReserved2 == 0 &&
-		bf.bfSize > bf.bfOffBits && bf.bfOffBits > sizeof(BITMAPFILEHEADER) &&
-		bf.bfOffBits <= sizeof(BITMAPFILEHEADER) + sizeof(KHMZ_BITMAPINFOEX))
-	{
-		cbImage = bf.bfSize - bf.bfOffBits;
-		pvBits1 = HeapAlloc(GetProcessHeap(), 0, cbImage);
-		if (pvBits1)
-		{
-			if (!ReadFile(hFile, &bmi, bf.bfOffBits -
-				sizeof(BITMAPFILEHEADER), &cb, NULL) ||
-				!ReadFile(hFile, pvBits1, cbImage, &cb, NULL))
-			{
-				HeapFree(GetProcessHeap(), 0, pvBits1);
-				pvBits1 = NULL;
-			}
-		}
-	}
-	CloseHandle(hFile);
-	if (pvBits1 == NULL)
-	{
-		return NULL;
-	}
-	hbm = CreateDIBSection(NULL, (BITMAPINFO*)&bmi, DIB_RGB_COLORS,
-		&pvBits2, NULL, 0);
-	if (hbm)
-	{
-		hDC = CreateCompatibleDC(NULL);
-		if (!SetDIBits(hDC, hbm, 0, (UINT)labs(bmi.bmiHeader.biHeight), pvBits1, (BITMAPINFO*)&bmi, DIB_RGB_COLORS))
-		{
-			DeleteObject(hbm);
-			hbm = NULL;
-		}
-		DeleteDC(hDC);
-	}
-	HeapFree(GetProcessHeap(), 0, pvBits1);
-	return hbm;
-}
-
-
-void SaveFile(HBITMAP bmpToSave)
-{
-	BOOL fOK;
-	KHMZ_BITMAPINFOEX bmi;
-	BITMAPFILEHEADER bf;
-	BITMAPINFOHEADER *bmpInfoHdr;
-	BITMAP bm;
-	DWORD cb, cbColors;
-	HDC hDC;
-	HANDLE hFile;
-	LPVOID pBits;
-
-	GetObject(bmpToSave, sizeof(BITMAP), &bm);
-	bmpInfoHdr = &bmi.bmiHeader;
-	ZeroMemory(bmpInfoHdr, sizeof(BITMAPINFOHEADER));
-	bmpInfoHdr->biSize = sizeof(BITMAPINFOHEADER);
-	bmpInfoHdr->biWidth = bm.bmWidth;
-	bmpInfoHdr->biHeight = bm.bmHeight;
-	bmpInfoHdr->biPlanes = 1;
-	bmpInfoHdr->biBitCount = bm.bmBitsPixel;
-	bmpInfoHdr->biCompression = BI_RGB;
-	bmpInfoHdr->biSizeImage = (DWORD)(bm.bmWidthBytes * bm.bmHeight);
-
-	if (bm.bmBitsPixel <= 8)
-		cbColors = (DWORD)((1ULL << bm.bmBitsPixel) * sizeof(RGBQUAD));
-	else
-		cbColors = 0;
-
-	bf.bfType = 0x4D42;
-	bf.bfReserved1 = 0;
-	bf.bfReserved2 = 0;
-	cb = sizeof(BITMAPFILEHEADER) + bmpInfoHdr->biSize + cbColors;
-	bf.bfOffBits = cb;
-	bf.bfSize = cb + bmpInfoHdr->biSizeImage;
-
-	pBits = HeapAlloc(GetProcessHeap(), 0, bmpInfoHdr->biSizeImage);
-	if (pBits == NULL)
-	{
-		return;   /* allocation failure */
-	}
-
-	hDC = CreateCompatibleDC(NULL);
-
-	fOK = FALSE;
-	GetDIBits(hDC, bmpToSave, 0, (UINT)bm.bmHeight, pBits, (BITMAPINFO *)&bmi, DIB_RGB_COLORS);
-	hFile = CreateFile("custom.bmp", GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH, NULL);
-	if (hFile != INVALID_HANDLE_VALUE)
-	{
-		fOK = WriteFile(hFile, &bf, sizeof(bf), &cb, NULL) &&
-			WriteFile(hFile, &bmi, sizeof(BITMAPINFOHEADER) + cbColors, &cb, NULL) &&
-			WriteFile(hFile, pBits, bmpInfoHdr->biSizeImage, &cb, NULL);
-
-		CloseHandle(hFile);
-
-		if (!fOK)
-		{
-			DeleteFile("custom.bmp");
-		}
-	}
-	DeleteDC(hDC);
-	HeapFree(GetProcessHeap(), 0, pBits);
-}
-
-POINT GetMouseCoords(HWND hwnd)
-{
-	POINT absCursorPos, resultCoords;
-	RECT windowPosCoords;
-	GetCursorPos(&absCursorPos);
-	GetWindowRect(hwnd, &windowPosCoords);
-	resultCoords.x = absCursorPos.x - windowPosCoords.left;
-	resultCoords.y = absCursorPos.y - windowPosCoords.top;
-	return resultCoords;
 }
 
 void CreateLayer(HWND hWnd, HDC* newDC, HBITMAP* newBmp, int width, int hight)

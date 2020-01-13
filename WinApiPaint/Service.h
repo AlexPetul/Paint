@@ -9,5 +9,6 @@ private:
 public:
 	Service(HMENU hMenu);
 	bool GetMenuItemState(int currState);
+	POINT GetMouseCoords(HWND hwnd);
 	~Service();
 };

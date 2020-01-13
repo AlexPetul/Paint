@@ -4,6 +4,7 @@ PaintManager::PaintManager()
 {
 	this->isDrawing = false;
 	this->isMoving = false;
+	this->toolUsed = 0;
 	this->currentCommand = 0;
 }
 
@@ -37,8 +38,22 @@ void PaintManager::SetCurrentCommand(int command)
 	this->currentCommand = command;
 }
 
+int PaintManager::GetUsedToolId()
+{
+	return this->toolUsed;
+}
+
+void PaintManager::SetToolId(int currToolId)
+{
+	this->toolUsed = currToolId;
+}
+
 void PaintManager::SetDrawer(Figure* drawer)
 {
+	if (this->drawer != NULL)
+	{
+		delete this->drawer;
+	}
 	this->drawer = drawer;
 }
 

@@ -6,6 +6,7 @@ class PaintManager
 private:
 	bool isDrawing, isMoving;
 	int currentCommand;
+	int toolUsed;
 	Figure *drawer;
 public:
 	PaintManager();
@@ -15,6 +16,8 @@ public:
 	void SetMovingState(bool state);
 	int GetCurrentCommand();
 	void SetCurrentCommand(int command);
+	int GetUsedToolId();
+	void SetToolId(int currToolId);
 	void SetDrawer(Figure* drawer);
 	Figure* GetDrawer();
 	void SetDrawerCoords(int x1, int y1, int x2, int y2);

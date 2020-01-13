@@ -36,6 +36,17 @@ bool Service::GetMenuItemState(int currMenuItem)
 	}
 }
 
+POINT Service::GetMouseCoords(HWND hwnd)
+{
+	POINT absCursorPos, resultCoords;
+	RECT windowPosCoords;
+	GetCursorPos(&absCursorPos);
+	GetWindowRect(hwnd, &windowPosCoords);
+	resultCoords.x = absCursorPos.x - windowPosCoords.left;
+	resultCoords.y = absCursorPos.y - windowPosCoords.top;
+	return resultCoords;
+}
+
 Service::~Service()
 {
 
