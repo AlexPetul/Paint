@@ -2,6 +2,7 @@
 #include "MainPaint.h"
 #include <string>
 #include <vector>
+#include <fstream>
 #include "PaintController.h"
 
 POINT prevRelCoords, currRelCoords;
@@ -41,7 +42,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	RegisterClassEx(&_wc);
 	_hwnd = CreateWindow(WND_CLASSNAME, WND_NAME, WS_OVERLAPPEDWINDOW^WS_THICKFRAME,
-		WND_START_X, WND_START_Y, WND_WIDTH, WND_HEIGHT, NULL, NULL, hInstance, NULL);
+		CW_USEDEFAULT, CW_USEDEFAULT, WND_WIDTH, WND_HEIGHT, NULL, NULL, hInstance, NULL);
 	ShowWindow(_hwnd, nCmdShow);
 	UpdateWindow(_hwnd);
 
@@ -70,6 +71,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	}
 	return (int)_msg.wParam;
 }
+
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -123,26 +125,24 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			paintManager->SetCurrentCommand(MOVE_FIGURES_COMMAND);
 			break;
 		case ID_SAVE_FILE:
-			fileManager->SaveFile(secondMemoryBitmap, hwnd);
+			fileManager->SaveFile(memoryBitmap, hwnd);
+			fileManager->SaveFiguresToFile(figures);
 			break;
 		case ID_OPEN_FILE:
 			memoryBitmap = fileManager->LoadBitmapFromFile();
-			secondMemoryBitmap = fileManager->LoadBitmapFromFile();
-
+			secondMemoryBitmap = (HBITMAP)CopyImage(memoryBitmap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
 			GetClientRect(hwnd, &clientRect);
 			FillRect(hdc, &clientRect, (HBRUSH)(COLOR_WINDOW + 1));
 			figures.clear();
-
+			fileManager->LoadFigures(figures);
 			hdc = GetDC(hwnd);
 			memory = CreateCompatibleDC(hdc);
 			SelectObject(memory, memoryBitmap);
 			ReleaseDC(hwnd, hdc);
-
 			hdc = GetDC(hwnd);
 			secondMemory = CreateCompatibleDC(hdc);
 			SelectObject(secondMemory, secondMemoryBitmap);
 			ReleaseDC(hwnd, hdc);
-
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);
 
@@ -150,6 +150,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_LBUTTONDOWN:
+		
 		if ((paintManager->GetCurrentCommand() >= 1) && (paintManager->GetCurrentCommand() <= 3))
 		{
 			BitBlt(secondMemory, 0, 0, WND_WIDTH, WND_HEIGHT, memory, 0, 0, SRCCOPY);

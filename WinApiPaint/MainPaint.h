@@ -5,8 +5,6 @@
 #include "Service.h"
 #include "FileManager.h"
 
-#define WND_START_X 0
-#define WND_START_Y 0
 #define WND_WIDTH 800
 #define WND_HEIGHT 700
 #define WND_CLASSNAME "MainWindow"

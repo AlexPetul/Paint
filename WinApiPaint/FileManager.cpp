@@ -136,6 +136,25 @@ void FileManager::SaveFile(HBITMAP bmpToSave, HWND hwnd)
 	MessageBox(hwnd, TEXT("File saved (custom.bmp)"), TEXT("File Manager"), NULL);
 }
 
+
+void FileManager::SaveFiguresToFile(std::vector<DrawnFigure> figs)
+{
+	fout.open(FIGURES_FILENAME, std::ios::out | std::ios::binary);
+	fout.write(reinterpret_cast<const char*>(&figs[0]), figs.size() * sizeof(DrawnFigure));
+	fout.close();
+}
+
+std::vector<DrawnFigure> FileManager::LoadFigures(std::vector<DrawnFigure> &figs)
+{
+	stat(FIGURES_FILENAME, &filestatus);
+	const size_t count = filestatus.st_size / sizeof(DrawnFigure);
+	figs.resize(count, { NULL, 0 });
+	fin.open(FIGURES_FILENAME, std::ios::in | std::ios::binary);
+	fin.read(reinterpret_cast<char*>(&figs[0]), count * sizeof(DrawnFigure));
+	fin.close();
+	return figs;
+}
+
 FileManager::~FileManager()
 {
 
