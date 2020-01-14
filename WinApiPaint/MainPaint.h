@@ -10,6 +10,9 @@
 #define WND_CLASSNAME "MainWindow"
 #define WND_NAME "Paint"
 
+#define BLACK_PEN RGB(0, 0, 0)
+#define WHITE_PEN RGB(255, 255, 255)
+#define GRAY_PEN RGB(169, 169, 169)
 
 #define CIRCLE_DRAW_COMMAND 1
 #define RECTANGLE_DRAW_COMMAND 2
