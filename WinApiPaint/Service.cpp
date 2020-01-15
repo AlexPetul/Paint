@@ -52,6 +52,26 @@ POINT Service::GetMouseCoords(HWND hwnd)
 	return resultCoords;
 }
 
+void Service::CreateMainLayer(HWND hWnd, HDC* newDC, HBITMAP* newBmp, int width, int hight)
+{
+	HDC hdc = GetDC(hWnd);
+	*newDC = CreateCompatibleDC(hdc);
+	*newBmp = CreateCompatibleBitmap(hdc, width, hight);
+	SelectObject(*newDC, *newBmp);
+	HPEN printPen = CreatePen(PS_SOLID, 5, BLACK_PEN);
+	SelectObject(*newDC, printPen);
+	Rectangle(*newDC, -1, -1, width + 1, hight + 1);
+	ReleaseDC(hWnd, hdc);
+}
+
+void Service::CreateAfterLoadLayer(HWND hwnd, HDC &hdc, HDC &memory, HBITMAP bmp)
+{
+	hdc = GetDC(hwnd);
+	memory = CreateCompatibleDC(hdc);
+	SelectObject(memory, bmp);
+	ReleaseDC(hwnd, hdc);
+}
+
 Service::~Service()
 {
 

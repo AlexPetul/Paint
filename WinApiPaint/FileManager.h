@@ -22,6 +22,6 @@ public:
 	HBITMAP LoadBitmapFromFile();
 	void SaveFile(HBITMAP bmpToSave, HWND hwnd);
 	void SaveFiguresToFile(std::vector<DrawnFigure> figs);
-	std::vector<DrawnFigure> LoadFigures(std::vector<DrawnFigure> &figs);
+	bool LoadFigures(std::vector<DrawnFigure> &figs);
 	~FileManager();
 };

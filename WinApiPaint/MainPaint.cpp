@@ -1,31 +1,21 @@
 #pragma once
 #include "MainPaint.h"
 #include <string>
-#include <vector>
 #include "PaintController.h"
-#include <map>
 
-POINT prevRelCoords, currRelCoords;
-HDC memory, secondMemory, hdc;
-POINT prevMouseCoords, currMouseCoords, temp;
 PaintManager *paintManager = new PaintManager();
 FileManager *fileManager = new FileManager();
 Service *service;
+
+POINT prevRelCoords, currRelCoords, temp;
+HDC memory, secondMemory, hdc;
+PAINTSTRUCT ps;
 int movingFigureIndex;
 int xOffset, yOffset;
-PAINTSTRUCT ps;
-HPEN pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-HPEN printPen;
-RECT windowPosCoords, currentMovingFigure, clientRect;
+RECT currentMovingFigure, clientRect;
 std::vector<DrawnFigure> figures;
-HBITMAP memoryBitmap, secondMemoryBitmap, prevStateBitmap;
-
-typedef struct figureHood
-{
-	RECT figureRect;
-	POINT selfCenterPos;
-	std::map<int, POINT> linkedFigures;
-}FigureHood;
+HBITMAP memoryBitmap, secondMemoryBitmap, tempBitMap;
+bool isConnectionDrawn = false;
 
 std::vector<FigureHood> figureHood;
 
@@ -51,7 +41,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 
 	RegisterClassEx(&_wc);
 	_hwnd = CreateWindow(WND_CLASSNAME, WND_NAME, WS_OVERLAPPEDWINDOW^WS_THICKFRAME,
-		CW_USEDEFAULT, CW_USEDEFAULT, WND_WIDTH, WND_HEIGHT, NULL, NULL, hInstance, NULL);
+		300, 300, WND_WIDTH, WND_HEIGHT, NULL, NULL, hInstance, NULL);
 	ShowWindow(_hwnd, nCmdShow);
 	UpdateWindow(_hwnd);
 
@@ -81,16 +71,13 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdL
 	return (int)_msg.wParam;
 }
 
-int prevCommand = 0;
-
-
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
 	case WM_CREATE:
-		CreateLayer(hwnd, &memory, &memoryBitmap, WND_WIDTH, WND_HEIGHT);
-		CreateLayer(hwnd, &secondMemory, &secondMemoryBitmap, WND_WIDTH, WND_HEIGHT);
+		service->CreateMainLayer(hwnd, &memory, &memoryBitmap, WND_WIDTH, WND_HEIGHT);
+		service->CreateMainLayer(hwnd, &secondMemory, &secondMemoryBitmap, WND_WIDTH, WND_HEIGHT);
 		break;
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
@@ -104,7 +91,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				paintManager->SetCurrentCommand(0);
+				paintManager->SetCurrentCommand(NO_COMMAND);
 			}
 			break;
 		case ID_TRIANGLE:
@@ -116,7 +103,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				paintManager->SetCurrentCommand(0);
+				paintManager->SetCurrentCommand(NO_COMMAND);
 			}
 			break;
 		case ID_RECTANGLE:
@@ -129,92 +116,67 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				paintManager->SetCurrentCommand(0);
+				paintManager->SetCurrentCommand(NO_COMMAND);
 			}
 		case ID_MOVE_OBJECTS:
-			if (paintManager->GetCurrentCommand() == CONNECTOR_LINE_COMMAND)
-				prevCommand = CONNECTOR_LINE_COMMAND;
 			service->GetMenuItemState(ID_MOVE_OBJECTS);
 			paintManager->SetCurrentCommand(MOVE_FIGURES_COMMAND);
 			break;
 		case ID_SAVE_FILE:
+			if (paintManager->GetCurrentCommand() == CONNECTOR_LINE_COMMAND)
+			{
+				SendMessage(hwnd, WM_COMMAND, MAKEWPARAM(ID_CONNECTOR_LINE, HIWORD(wParam)), lParam);
+			}
 			fileManager->SaveFile(memoryBitmap, hwnd);
 			fileManager->SaveFiguresToFile(figures);
 			break;
 		case ID_CONNECTOR_LINE:
-			if ((paintManager->GetCurrentCommand() == MOVE_FIGURES_COMMAND) || (paintManager->GetCurrentCommand() == CONNECTOR_LINE_COMMAND))
+			if (isConnectionDrawn)
 			{
 				SelectObject(memory, CreatePen(PS_SOLID, 1, WHITE_PEN));
-				prevCommand = 0;
-				paintManager->SetCurrentCommand(0);
+				paintManager->SetCurrentCommand(NO_COMMAND);
+				isConnectionDrawn = false;
 			}
 			else
 			{
 				SelectObject(memory, CreatePen(PS_DASH, 1, GRAY_PEN));
 				paintManager->SetCurrentCommand(CONNECTOR_LINE_COMMAND);
+				isConnectionDrawn = true;
 			}
+
 			service->GetMenuItemState(ID_CONNECTOR_LINE);
-			prevStateBitmap = memoryBitmap;
-
-			figureHood.clear();
-			for (int index = 0; index < figures.size(); index++)
-			{
-				std::map<int, POINT> newPair;
-				POINT selfCenterPoint = { 0,0 };
-				figureHood.push_back({ figures[index].figureRect, selfCenterPoint, newPair });
-			}
-
-			for (int subIndex = 0; subIndex < figures.size(); subIndex++)
-			{
-				int selfCenterX = figureHood[subIndex].figureRect.left + (figureHood[subIndex].figureRect.right - figureHood[subIndex].figureRect.left) / 2;
-				int selfCenterY = figureHood[subIndex].figureRect.top + (figureHood[subIndex].figureRect.bottom - figureHood[subIndex].figureRect.top) / 2;
-				figureHood[subIndex].selfCenterPos = { selfCenterX, selfCenterY };
-				for (int index = 0; index < figures.size(); index++)
-				{
-					if (index == subIndex)
-						continue;
-					if (figureHood[index].linkedFigures.find(subIndex) == figureHood[index].linkedFigures.end())
-					{
-						int currCenterX = figureHood[subIndex].figureRect.left + (figureHood[subIndex].figureRect.right - figureHood[subIndex].figureRect.left) / 2;
-						int currCenterY = figureHood[subIndex].figureRect.top + (figureHood[subIndex].figureRect.bottom - figureHood[subIndex].figureRect.top) / 2;
-						figureHood[index].linkedFigures[subIndex] = { currCenterX, currCenterY };
-					}
-				}
-			}
-
-			for (int index = 0; index < figureHood.size(); index++)
-			{
-				for (std::map<int, POINT>::iterator it = figureHood[index].linkedFigures.begin();
-					it != figureHood[index].linkedFigures.end(); it++)
-				{
-					
-					MoveToEx(memory, figureHood[index].selfCenterPos.x, figureHood[index].selfCenterPos.y, &temp);
-					LineTo(memory, (int)it->second.x, (int)it->second.y);
-				}
-			}
-
-
-			SelectObject(memory, CreatePen(PS_SOLID, 1, BLACK_PEN));
+			paintManager->InitConnectionTable(figureHood, figures);
+			paintManager->DrawConnections(memory, figureHood);
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);
 			break;
 		case ID_OPEN_FILE:
-			memoryBitmap = fileManager->LoadBitmapFromFile();
-			secondMemoryBitmap = (HBITMAP)CopyImage(memoryBitmap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
-			GetClientRect(hwnd, &clientRect);
-			FillRect(hdc, &clientRect, (HBRUSH)(COLOR_WINDOW + 1));
-			figures.clear();
-			fileManager->LoadFigures(figures);
-			hdc = GetDC(hwnd);
-			memory = CreateCompatibleDC(hdc);
-			SelectObject(memory, memoryBitmap);
-			ReleaseDC(hwnd, hdc);
-			hdc = GetDC(hwnd);
-			secondMemory = CreateCompatibleDC(hdc);
-			SelectObject(secondMemory, secondMemoryBitmap);
-			ReleaseDC(hwnd, hdc);
-			InvalidateRect(hwnd, NULL, FALSE);
-			UpdateWindow(hwnd);
+			tempBitMap = fileManager->LoadBitmapFromFile();
+			if (tempBitMap == NULL)
+			{
+				MessageBox(hwnd, TEXT("Error opening custom.bmp file."), TEXT("File Manager"), NULL);
+			}
+			else
+			{
+				if (fileManager->LoadFigures(figures) == false)
+				{
+					MessageBox(hwnd, TEXT("Error opening figures.dat file."), TEXT("File Manager"), NULL);
+				}
+				else
+				{
+					memoryBitmap = (HBITMAP)CopyImage(tempBitMap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
+					secondMemoryBitmap = (HBITMAP)CopyImage(memoryBitmap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
+					GetClientRect(hwnd, &clientRect);
+					FillRect(hdc, &clientRect, (HBRUSH)(COLOR_WINDOW + 1));
+					service->CreateAfterLoadLayer(hwnd, hdc, memory, memoryBitmap);
+					service->CreateAfterLoadLayer(hwnd, hdc, secondMemory, secondMemoryBitmap);
+					isConnectionDrawn = false;
+					paintManager->SetMovingState(false);
+					paintManager->SetDrawingState(false);
+					InvalidateRect(hwnd, NULL, FALSE);
+					UpdateWindow(hwnd);
+				}
+			}
  			break;
 		}
 		break;
@@ -222,7 +184,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if ((paintManager->GetCurrentCommand() >= 1) && (paintManager->GetCurrentCommand() <= 3))
 		{
 			BitBlt(secondMemory, 0, 0, WND_WIDTH, WND_HEIGHT, memory, 0, 0, SRCCOPY);
-			SelectObject(memory, pen);
+			SelectObject(memory, CreatePen(PS_SOLID, 1, BLACK_PEN));
 			prevRelCoords = service->GetMouseCoords(hwnd);
 			if (paintManager->GetCurrentCommand() != 0)
 			{
@@ -257,7 +219,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					movingFigureIndex = index;
 					paintManager->SetMovingState(true);
 
-					if (prevCommand == CONNECTOR_LINE_COMMAND)
+					if (isConnectionDrawn)
 					{
 						SelectObject(memory, CreatePen(PS_SOLID, 1, WHITE_PEN));
 						for (std::map<int, POINT>::iterator it = figureHood[movingFigureIndex].linkedFigures.begin();
@@ -270,6 +232,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 						}
 						SelectObject(memory, CreatePen(PS_SOLID, 1, BLACK_PEN));
 					}
+
 					BitBlt(secondMemory, 0, 0, WND_WIDTH, WND_HEIGHT, memory, 0, 0, SRCCOPY);
 					InvalidateRect(hwnd, 0, FALSE);
 					UpdateWindow(hwnd);
@@ -286,6 +249,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			paintManager->SetDrawerCoords(prevRelCoords.x, prevRelCoords.y, currRelCoords.x, currRelCoords.y);
 			paintManager->DrawFigure(memory);
 			figures.push_back({ paintManager->GetDrawer()->GetFigureRect(), paintManager->GetUsedToolId() });
+
+			if (isConnectionDrawn)
+			{
+				SelectObject(memory, CreatePen(PS_DASH, 1, GRAY_PEN));
+				paintManager->InitConnectionTable(figureHood, figures);
+				paintManager->DrawConnections(memory, figureHood);
+			}
+
 			InvalidateRect(hwnd, NULL, FALSE);
 			UpdateWindow(hwnd);
 		}
@@ -298,13 +269,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			paintManager->SetDrawerCoords(currRelCoords.x - xOffset, currRelCoords.y - yOffset, currRelCoords.x + figureWidth - xOffset, currRelCoords.y + figureHeight - yOffset);
 			paintManager->DrawFigure(memory);
 			figures[movingFigureIndex] = { paintManager->GetDrawer()->GetFigureRect(), figures[movingFigureIndex].toolId };
+			
 
 			if (!figureHood.empty())
 			{
-				figureHood[movingFigureIndex].figureRect = figures[movingFigureIndex].figureRect;
+				paintManager->InitConnectionTable(figureHood, figures);
 			}
 
-			if (prevCommand == CONNECTOR_LINE_COMMAND)
+			if (isConnectionDrawn)
 			{
 				SelectObject(memory, CreatePen(PS_DASH, 1, GRAY_PEN));
 				for (int index = 0; index < figureHood.size(); index++) 
@@ -363,12 +335,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			BitBlt(secondMemory, 0, 0, WND_WIDTH, WND_HEIGHT, memory, 0, 0, SRCCOPY);
 			FillRect(memory, &currentMovingFigure, (HBRUSH)(COLOR_WINDOW + 1));
 			currRelCoords = service->GetMouseCoords(hwnd);
-			int ellipseWidth = currentMovingFigure.right - currentMovingFigure.left;
-			int ellipseHeight = currentMovingFigure.bottom - currentMovingFigure.top;
-			paintManager->SetDrawerCoords(currRelCoords.x - xOffset, currRelCoords.y - yOffset, currRelCoords.x + ellipseWidth - xOffset, currRelCoords.y + ellipseHeight - yOffset);
+			int figureWidth = currentMovingFigure.right - currentMovingFigure.left;
+			int figureHeight = currentMovingFigure.bottom - currentMovingFigure.top;
+			paintManager->SetDrawerCoords(currRelCoords.x - xOffset, currRelCoords.y - yOffset, currRelCoords.x + figureWidth - xOffset, currRelCoords.y + figureHeight- yOffset);
 			paintManager->DrawFigure(memory);
 
-			if (prevCommand == CONNECTOR_LINE_COMMAND)
+			if (isConnectionDrawn)
 			{
 				SelectObject(memory, CreatePen(PS_DASH, 1, GRAY_PEN));
 				for (std::map<int, POINT>::iterator it = figureHood[movingFigureIndex].linkedFigures.begin();
@@ -392,21 +364,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		EndPaint(hwnd, &ps);
 		break;
 	case WM_DESTROY:
+		delete service;
+		delete fileManager;
+		delete paintManager;
 		PostQuitMessage(0);
 		break;
 	default:
 		return DefWindowProc(hwnd, message, wParam, lParam);
 	}
-}
-
-void CreateLayer(HWND hWnd, HDC* newDC, HBITMAP* newBmp, int width, int hight)
-{
-	HDC hdc = GetDC(hWnd);
-	*newDC = CreateCompatibleDC(hdc);
-	*newBmp = CreateCompatibleBitmap(hdc, width, hight);
-	SelectObject(*newDC, *newBmp);
-	HPEN printPen = CreatePen(PS_SOLID, 5, RGB(0, 0, 0));
-	SelectObject(*newDC, printPen);
-	Rectangle(*newDC, -1, -1, width + 1, hight + 1);
-	ReleaseDC(hWnd, hdc);
 }

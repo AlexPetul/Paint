@@ -14,6 +14,7 @@
 #define WHITE_PEN RGB(255, 255, 255)
 #define GRAY_PEN RGB(169, 169, 169)
 
+#define NO_COMMAND 0
 #define CIRCLE_DRAW_COMMAND 1
 #define RECTANGLE_DRAW_COMMAND 2
 #define TRIANGLE_DRAW_COMMAND 3
@@ -31,4 +32,3 @@
 #define ID_OPEN_FILE 672
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-void CreateLayer(HWND hWnd, HDC* newDC, HBITMAP* newBmp, int width, int hight);

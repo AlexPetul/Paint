@@ -10,5 +10,5 @@ public:
 	virtual void Draw(HDC hdc) = 0;
 	virtual void SetFigurePoints(int x1, int y1, int x2, int y2) = 0;
 	virtual RECT GetFigureRect() = 0;
-	~Figure();
+	virtual ~Figure();
 };

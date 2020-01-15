@@ -144,15 +144,21 @@ void FileManager::SaveFiguresToFile(std::vector<DrawnFigure> figs)
 	fout.close();
 }
 
-std::vector<DrawnFigure> FileManager::LoadFigures(std::vector<DrawnFigure> &figs)
+bool FileManager::LoadFigures(std::vector<DrawnFigure> &figs)
 {
-	stat(FIGURES_FILENAME, &filestatus);
-	const size_t count = filestatus.st_size / sizeof(DrawnFigure);
-	figs.resize(count, { NULL, 0 });
-	fin.open(FIGURES_FILENAME, std::ios::in | std::ios::binary);
-	fin.read(reinterpret_cast<char*>(&figs[0]), count * sizeof(DrawnFigure));
-	fin.close();
-	return figs;
+	if (stat(FIGURES_FILENAME, &filestatus))
+	{
+		return false;
+	}
+	else {
+		figs.clear();
+		const size_t count = filestatus.st_size / sizeof(DrawnFigure);
+		figs.resize(count, { NULL, 0 });
+		fin.open(FIGURES_FILENAME, std::ios::in | std::ios::binary);
+		fin.read(reinterpret_cast<char*>(&figs[0]), count * sizeof(DrawnFigure));
+		fin.close();
+		return true;
+	}
 }
 
 FileManager::~FileManager()

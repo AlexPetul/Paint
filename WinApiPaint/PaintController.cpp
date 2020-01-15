@@ -82,14 +82,51 @@ void PaintManager::EraseFigureByIndex()
 	this->figures.erase(this->figures.begin() + movingFigureIndex);
 }
 
-void PaintManager::SetMovingFigureIndex(int index)
+POINT PaintManager::GetRectCenter(RECT rect)
 {
-	this->movingFigureIndex = index;
+	int centerX = rect.left + (rect.right - rect.left) / 2;
+	int centerY = rect.top + (rect.bottom - rect.top) / 2;
+	return { centerX, centerY };
 }
 
-std::vector<DrawnFigure> PaintManager::GetPaintedFigures()
+void PaintManager::InitConnectionTable(std::vector<FigureHood> &figureHood, std::vector<DrawnFigure> figures)
 {
-	return this->figures;
+	figureHood.clear();
+	for (int index = 0; index < figures.size(); index++)
+	{
+		std::map<int, POINT> newPair;
+		POINT selfCenterPoint = { 0,0 };
+		figureHood.push_back({ figures[index].figureRect, selfCenterPoint, newPair });
+	}
+	for (int subIndex = 0; subIndex < figureHood.size(); subIndex++)
+	{
+		figureHood[subIndex].selfCenterPos = GetRectCenter(figureHood[subIndex].figureRect);
+		for (int index = 0; index < figureHood.size(); index++)
+		{
+			if (index != subIndex)
+			{
+				if (figureHood[index].linkedFigures.find(subIndex) == figureHood[index].linkedFigures.end())
+				{
+					figureHood[index].linkedFigures[subIndex] = GetRectCenter(figureHood[subIndex].figureRect);
+				}
+			}
+		}
+	}
+}
+
+void PaintManager::DrawConnections(HDC &memory, std::vector<FigureHood> &figureHood)
+{
+	POINT tempPoint;
+	for (int index = 0; index < figureHood.size(); index++)
+	{
+		for (std::map<int, POINT>::iterator it = figureHood[index].linkedFigures.begin();
+			it != figureHood[index].linkedFigures.end(); it++)
+		{
+			MoveToEx(memory, figureHood[index].selfCenterPos.x, figureHood[index].selfCenterPos.y, &tempPoint);
+			LineTo(memory, (int)it->second.x, (int)it->second.y);
+		}
+	}
+	SelectObject(memory, CreatePen(PS_SOLID, 1, BLACK_PEN));
 }
 
 PaintManager::~PaintManager()

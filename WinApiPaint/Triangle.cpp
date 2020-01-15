@@ -8,7 +8,7 @@ Triangle::Triangle()
 
 void Triangle::Draw(HDC hdc)
 {
-	POINT vertexes[3] = { {x1,y1}, { x1 + (x2-x1)/2, y2 }, { x2, y1 } };
+	POINT vertexes[3] = { {x1,y1}, { x1 + (x2-x1)/2, y2-5 }, { x2 - 5, y1 } };
 	Polygon(hdc, vertexes, 3);
 }
 

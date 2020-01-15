@@ -1,6 +1,14 @@
 #pragma once
 #include <vector>
+#include <map>
 #include "Figure.h"
+
+typedef struct figureHood
+{
+	RECT figureRect;
+	POINT selfCenterPos;
+	std::map<int, POINT> linkedFigures;
+}FigureHood;
 
 typedef struct drawnFigure
 {
@@ -17,6 +25,7 @@ private:
 	int movingFigureIndex;
 	Figure *drawer;
 	std::vector<DrawnFigure> figures;
+	POINT GetRectCenter(RECT rect);
 public:
 	PaintManager();
 	bool GetDrawingState();
@@ -33,7 +42,7 @@ public:
 	void DrawFigure(HDC hdc);
 	void AddFigure();
 	void EraseFigureByIndex();
-	void SetMovingFigureIndex(int index);
-	std::vector<DrawnFigure> GetPaintedFigures();
+	void InitConnectionTable(std::vector<FigureHood> &figureHood, std::vector<DrawnFigure> figures);
+	void DrawConnections(HDC &memory, std::vector<FigureHood> &figureHood);
 	~PaintManager();
 };
