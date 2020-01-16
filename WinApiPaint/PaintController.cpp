@@ -8,46 +8,6 @@ PaintManager::PaintManager()
 	this->currentCommand = 0;
 }
 
-bool PaintManager::GetDrawingState()
-{
-	return this->isDrawing;
-}
-
-void PaintManager::SetDrawingState(bool state)
-{
-	this->isDrawing = state;
-}
-
-bool PaintManager::GetMovingState()
-{
-	return this->isMoving;
-}
-
-void PaintManager::SetMovingState(bool state)
-{
-	this->isMoving = state;
-}
-
-int PaintManager::GetCurrentCommand()
-{
-	return this->currentCommand;
-}
-
-void PaintManager::SetCurrentCommand(int command)
-{
-	this->currentCommand = command;
-}
-
-int PaintManager::GetUsedToolId()
-{
-	return this->toolUsed;
-}
-
-void PaintManager::SetToolId(int currToolId)
-{
-	this->toolUsed = currToolId;
-}
-
 void PaintManager::SetDrawer(Figure* drawer)
 {
 	if (this->drawer != NULL)

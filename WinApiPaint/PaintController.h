@@ -28,14 +28,14 @@ private:
 	POINT GetRectCenter(RECT rect);
 public:
 	PaintManager();
-	bool GetDrawingState();
-	void SetDrawingState(bool state);
-	bool GetMovingState();
-	void SetMovingState(bool state);
-	int GetCurrentCommand();
-	void SetCurrentCommand(int command);
-	int GetUsedToolId();
-	void SetToolId(int currToolId);
+	bool GetDrawingState() { return this->isDrawing; };
+	void SetDrawingState(bool state) { this->isDrawing = state; };
+	bool GetMovingState() { return this->isMoving; };
+	void SetMovingState(bool state) { this->isMoving = state; };
+	int GetCurrentCommand() { return this->currentCommand; };
+	void SetCurrentCommand(int command) { this->currentCommand = command; };
+	int GetUsedToolId() { return this->toolUsed; };
+	void SetToolId(int currToolId) { this->toolUsed = currToolId; };
 	void SetDrawer(Figure* drawer);
 	Figure* GetDrawer();
 	void SetDrawerCoords(int x1, int y1, int x2, int y2);

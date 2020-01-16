@@ -1,10 +1,5 @@
 #include "EllipseFigure.h"
 
-EllipseFigure::EllipseFigure()
-{
-
-}
-
 void EllipseFigure::Draw(HDC hdc)
 {
 	Ellipse(hdc, x1, y1, x2, y2);
@@ -26,9 +21,4 @@ RECT EllipseFigure::GetFigureRect()
 	rect.right = x2;
 	rect.bottom = y2;
 	return rect;
-}
-
-EllipseFigure::~EllipseFigure()
-{
-
 }
